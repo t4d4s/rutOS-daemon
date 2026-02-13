@@ -1,0 +1,75 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=10
+
+start() {
+    # Load the current config values
+    config_load tuyad
+    config_get deviceID tuyad device_id
+    config_get deviceSecret tuyad device_secret
+    config_get productID tuyad product_id
+
+    # Check if the values are default
+    if [ "$deviceID" = "your_device_id_here" ] || [ "$deviceSecret" = "your_device_secret_here" ] || [ "$productID" = "your_product_id_here" ]; then
+        echo "Please enter your Device ID:"
+        read deviceID
+
+        echo "Please enter your Device Secret:"
+        read deviceSecret
+
+        echo "Please enter your Product ID:"
+        read productID
+
+        # Check if any value is empty
+        if [ -z "$deviceID" ] || [ -z "$deviceSecret" ] || [ -z "$productID" ]; then
+            logger -t tuyad "Error: One or more configuration values are missing!"
+            return 1
+        fi
+
+        # Set the values in the config file using uci
+        uci set tuyad.tuyad.device_id="$deviceID"
+        uci set tuyad.tuyad.device_secret="$deviceSecret"
+        uci set tuyad.tuyad.product_id="$productID"
+        uci commit tuyad
+    fi
+
+    # Now load the config again to retrieve the values
+    config_load tuyad
+    config_get deviceID tuyad device_id
+    config_get deviceSecret tuyad device_secret
+    config_get productID tuyad product_id
+
+    # Checking if our values are empty
+    if [ -z "$deviceID" ] || [ -z "$deviceSecret" ] || [ -z "$productID" ]; then
+        logger -t tuyad "Error: One or more configuration values are missing after loading!"
+        logger -t tuyad "Device ID: $deviceID"
+        logger -t tuyad "Device Secret: $deviceSecret"
+        logger -t tuyad "Product ID: $productID"
+        return 1
+    fi
+
+    # Starting the program
+    echo "Starting Tuya IoT Daemon, to read logs: logread | grep tuyad"
+    echo "Device ID: $deviceID Device Secret: $deviceSecret Product ID: $productID"
+    logger -t tuyad "Starting Tuya IoT Daemon x RutOS"
+    logger -t tuyad "Device ID: $deviceID"
+    logger -t tuyad "Device Secret: $deviceSecret"
+    logger -t tuyad "Product ID: $productID"
+
+    # Starting the program with daemon mode enabled
+    /usr/bin/tuyad "$deviceID" "$deviceSecret" "$productID" -d
+}
+
+stop() {
+    logger -t tuyad "Stopping Tuya IoT Daemon"
+    
+    killall tuyad
+    
+    # Check if the process was successfully stopped
+    if [ $? -eq 0 ]; then
+        logger -t tuyad "Tuya IoT Daemon stopped successfully."
+    else
+        logger -t tuyad "Error: Failed to stop Tuya IoT Daemon."
+    fi
+}
